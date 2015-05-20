@@ -1,13 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
-	"time"
-	// "encoding/binary"
-	"errors"
 	"strconv"
+	"time"
 )
 
 type windData struct {
@@ -22,7 +21,6 @@ func parseWindData(pack []byte) (w windData, err error) {
 
 	npack := make([]byte, 17)
 	copy(npack, pack[0:16])
-
 	for i := 0; i < 14; i++ {
 		npack[i] += '0'
 	}
@@ -50,9 +48,15 @@ func parseWindData(pack []byte) (w windData, err error) {
 	return
 }
 
+type stationData struct {
+	head, speed, avg float64
+}
+
 func main() {
 
 	ping := []byte("PING")
+	poll := []byte{0x01}
+	info := []byte{0x0D}
 
 	serveraddr, err := net.ResolveUDPAddr("udp", "windyg.phys.utas.edu.au:7758")
 	if err != nil {
@@ -75,17 +79,19 @@ func main() {
 		i := 0
 		for {
 			i++
-			if i > 10 {
-				i = 0
-				_, err = Conn.Write([]byte{1})
+			i = i % 10
+			switch i {
+			case 0:
+				_, err = Conn.Write(poll)
 				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "POLL")
-				if err != nil {
-					log.Fatal(err)
-				}
-				continue
+			case 1:
+				_, err = Conn.Write(info)
+				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "INFO")
+			default:
+				_, err = Conn.Write(ping)
+				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "PING")
 			}
-			_, err := Conn.Write(ping)
-			log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "PING")
+
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -94,45 +100,31 @@ func main() {
 	}()
 
 	buf := make([]byte, 1024)
-	go func() {
-		for {
-			_, err := Conn.Write(ping)
-			log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "PING")
-			if err != nil {
-				log.Fatal(err)
-			}
-			n, addr, err := Conn.ReadFromUDP(buf)
-
-			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
-				log.Println("pong timed out")
-				continue
-			}
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-	}()
-
 	for {
-		// err = Conn.SetReadDeadline(time.Now().Add(time.Second * 2))
-
-		_, err = Conn.Write([]byte{1})
-		log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "POLL")
+		n, addr, err := Conn.ReadFromUDP(buf)
+		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+			continue
+		}
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log.Printf("%s:%d - %s\n", addr.IP.String(), addr.Port, string(buf[0:n]))
-
-		w, err := parseWindData(buf)
-		if err != nil {
-			log.Println(err)
-			continue
+		switch buf[0] {
+		case 'P':
+			log.Printf("%s:%d - %s\n", addr.IP.String(), addr.Port, string(buf[0:n]))
+		case 0x01:
+			log.Printf("%s:%d - WINDDATA\n", addr.IP.String(), addr.Port)
+			w, err := parseWindData(buf)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			fmt.Println(w)
+		case 0x0D:
+			log.Printf("%s:%d - STATIONDATA\n", addr.IP.String(), addr.Port)
 		}
-		fmt.Println(w.speed)
 
-		time.Sleep(time.Second * 1)
+		// err = Conn.SetReadDeadline(time.Now().Add(time.Second * 2))
 	}
 
 }
