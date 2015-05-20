@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"time"
 )
@@ -49,8 +50,22 @@ func parseWindData(pack []byte) (w windData, err error) {
 }
 
 func main() {
-	server := "windyg.phys.utas.edu.au"
-	port := 7756
+	if len(os.Args) < 2 {
+		log.Fatal("Error: no hostname")
+	}
+	server := os.Args[1]
+
+	var port int
+	var err error
+	if len(os.Args) > 2 {
+		port, err = strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Fatal("Error: port poorly formatted")
+		}
+	} else {
+		port = 7756
+
+	}
 
 	ping := []byte("PING")
 	poll := []byte{0x01}
@@ -100,7 +115,7 @@ func main() {
 	go func() {
 		i := 0
 		for ; ; i++ {
-			i = i % 10
+			i = i % 5
 			switch i {
 			case 0:
 				_, err = Conn.Write(info)
@@ -120,7 +135,7 @@ func main() {
 	}()
 
 	buf := make([]byte, 1024)
-	var stname string = ""
+	stname := ""
 	for {
 		err = Conn.SetReadDeadline(time.Now().Add(time.Second * 20))
 		n, addr, err := Conn.ReadFromUDP(buf)
