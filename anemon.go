@@ -48,27 +48,49 @@ func parseWindData(pack []byte) (w windData, err error) {
 	return
 }
 
-type stationData struct {
-	head, speed, avg float64
-}
-
 func main() {
+	server := "windyg.phys.utas.edu.au"
+	port := 7756
 
 	ping := []byte("PING")
 	poll := []byte{0x01}
 	info := []byte{0x0D}
 
-	serveraddr, err := net.ResolveUDPAddr("udp", "windyg.phys.utas.edu.au:7758")
+	conreq := make([]byte, 12)
+	copy(conreq[0:6], []byte("CRQST"))
+	conreq[9] = byte(port >> 8)
+	conreq[10] = byte(port & 0xFF)
+	conreq[11] = 0
+	for i := 0; i < 11; i++ {
+		conreq[11] ^= conreq[i]
+	}
+
+	// Open our port
+	serveraddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:7754", server))
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	localaddr, err := net.ResolveUDPAddr("udp", ":7755")
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	Conn, err := net.DialUDP("udp", localaddr, serveraddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = Conn.Write(conreq)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "CRQST")
+	Conn.Close()
+
+	// Start acutual connection
+	serveraddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", server, port))
+	if err != nil {
+		log.Fatal(err)
+	}
+	Conn, err = net.DialUDP("udp", localaddr, serveraddr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,21 +99,19 @@ func main() {
 	//Keep Alive
 	go func() {
 		i := 0
-		for {
-			i++
+		for ; ; i++ {
 			i = i % 10
 			switch i {
 			case 0:
-				_, err = Conn.Write(poll)
-				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "POLL")
-			case 1:
 				_, err = Conn.Write(info)
 				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "INFO")
+			case 1:
+				_, err = Conn.Write(poll)
+				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "POLL")
 			default:
 				_, err = Conn.Write(ping)
 				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "PING")
 			}
-
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -99,10 +119,33 @@ func main() {
 		}
 	}()
 
+	datachan := make(chan windData)
+	namechan := make(chan []byte)
+
+	go func() {
+		var stname string = ""
+		for {
+			select {
+			case stnameb := <-namechan:
+				stname = string(stnameb)
+			case w := <-datachan:
+				const TIMEFMT = "2006-01-02 15:04:05"
+				fmt.Printf("%s %s %6.2f %03.0f %6.2f %03d %1d\n", stname, time.Now().Format(TIMEFMT), w.speed, w.head, w.avg, w.batt, w.stow)
+
+				/* printf("%s %4d-%02d-%02d %02d:%02d:%02d %6.2f %03.0f %6.2f %03d %1d\n", */
+				/*         device_name, year, month, day, hour, minute, second, */
+				/*         wind_speed, wind_direction, average_wind_speed, */
+				/*         battery_charge_pct, stow_state); */
+			}
+		}
+	}()
+
 	buf := make([]byte, 1024)
 	for {
+		err = Conn.SetReadDeadline(time.Now().Add(time.Second * 20))
 		n, addr, err := Conn.ReadFromUDP(buf)
 		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+			log.Println(err)
 			continue
 		}
 		if err != nil {
@@ -119,12 +162,12 @@ func main() {
 				log.Println(err)
 				continue
 			}
-			fmt.Println(w)
+			datachan <- w
 		case 0x0D:
 			log.Printf("%s:%d - STATIONDATA\n", addr.IP.String(), addr.Port)
+			namechan <- buf[0 : n-1]
 		}
 
-		// err = Conn.SetReadDeadline(time.Now().Add(time.Second * 2))
 	}
 
 }
