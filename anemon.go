@@ -96,7 +96,7 @@ func main() {
 	}
 	defer Conn.Close()
 
-	//Keep Alive
+	//Keep Alive and polling
 	go func() {
 		i := 0
 		for ; ; i++ {
@@ -119,28 +119,8 @@ func main() {
 		}
 	}()
 
-	datachan := make(chan windData)
-	namechan := make(chan []byte)
-
-	go func() {
-		var stname string = ""
-		for {
-			select {
-			case stnameb := <-namechan:
-				stname = string(stnameb)
-			case w := <-datachan:
-				const TIMEFMT = "2006-01-02 15:04:05"
-				fmt.Printf("%s %s %6.2f %03.0f %6.2f %03d %1d\n", stname, time.Now().Format(TIMEFMT), w.speed, w.head, w.avg, w.batt, w.stow)
-
-				/* printf("%s %4d-%02d-%02d %02d:%02d:%02d %6.2f %03.0f %6.2f %03d %1d\n", */
-				/*         device_name, year, month, day, hour, minute, second, */
-				/*         wind_speed, wind_direction, average_wind_speed, */
-				/*         battery_charge_pct, stow_state); */
-			}
-		}
-	}()
-
 	buf := make([]byte, 1024)
+	var stname string = ""
 	for {
 		err = Conn.SetReadDeadline(time.Now().Add(time.Second * 20))
 		n, addr, err := Conn.ReadFromUDP(buf)
@@ -162,10 +142,11 @@ func main() {
 				log.Println(err)
 				continue
 			}
-			datachan <- w
+			const TIMEFMT = "2006-01-02 15:04:05"
+			fmt.Printf("%s %s %6.2f %03.0f %6.2f %03d %1d\n", stname, time.Now().Format(TIMEFMT), w.speed, w.head, w.avg, w.batt, w.stow)
 		case 0x0D:
 			log.Printf("%s:%d - STATIONDATA\n", addr.IP.String(), addr.Port)
-			namechan <- buf[0 : n-1]
+			stname = string(buf[0 : n-1])
 		}
 
 	}
