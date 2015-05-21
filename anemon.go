@@ -116,7 +116,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 2)
 		}
 	}()
 
@@ -144,6 +144,8 @@ func main() {
 			}
 			const TIMEFMT = "2006-01-02 15:04:05"
 			fmt.Printf("%s %s %6.2f %03.0f %6.2f %03d %1d\n", w.name, time.Now().Format(TIMEFMT), w.speed, w.head, w.avg, w.batt, w.stow)
+			// Could use this, but pcfs time is more likely to be correct
+			// fmt.Printf("%s %s %6.2f %03.0f %6.2f %03d %1d\n", w.name, w.time.Format(TIMEFMT), w.speed, w.head, w.avg, w.batt, w.stow)
 		}
 
 	}
