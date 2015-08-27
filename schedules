@@ -1,0 +1,21 @@
+#!/bin/bash
+
+if [[ $# -lt 1 ]]; then
+    echo "Usage: exper stn1 stn2 ... "
+    exit 1
+fi
+
+exp=$1
+shift
+
+for st in "$@"
+do
+    if [[ $st == "ho" ]]; then
+        #echo $1\ny\n\ny\n | ssh newsmerd -- ./slogit.ivs.sh
+        ssh newsmerd -- ./slogit.ivs.sh
+        scp oper@hobart:/tmp/sched.tmp /vlbobs/ivs/sched/${exp}ho.sum
+    else
+        ssh ops-serv2 -- ./slogit_jim.sh $exp $st n
+    fi
+done
+

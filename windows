@@ -1,0 +1,83 @@
+#!/bin/bash
+
+declare -A stn_nums=(["hb"]="1" ["ke"]="2" ["yg"]="3" ["ho"]="4")
+declare -A stn_name=(["hb"]="Hobart 12" ["ke"]="Katherine 12" ["yg"]="Yarragadee 12" ["ho"]="Hobart 26")
+
+QUIET="2>/dev/null >/dev/null"
+
+logmonit() {
+    #Args: stn x y
+    echo ${stn_nums[$1]} | /usr2/st/bin/pcfs_log_monitor.pl 2>/dev/null >/dev/null &
+
+    local nwins=0
+    local n=0
+    while [ $nwins -lt 1  -a $n -lt 60 ]
+    do
+        sleep 0.5
+        local nwins=$(xdotool search --all --name "AuScope Log Monitor: ${stn_name[$1]}" | wc -l)
+        local n=$((n+1))
+        echo $n
+    done 
+    
+    xdotool search --all --name "AuScope Log Monitor: ${stn_name[$1]}"  windowmove $2 $3
+
+}
+
+monitsys() {
+    #Args: stn x y
+    echo ${stn_nums[$1]} | /usr2/st/bin/monitor_system.pl 2>/dev/null >/dev/null &
+
+    local nwins=0
+    local n=0
+    while [ $nwins -lt 1  -a $n -lt 60 ]
+    do
+        sleep 0.5
+        local nwins=$(xdotool search --all --name "AuScope System Monitor: ${stn_name[$1]}" | wc -l)
+        local n=$((n+1))
+        echo $n
+    done 
+    
+    xdotool search --all --name "AuScope System Monitor: ${stn_name[$1]}"  windowmove $2 $3
+}
+
+erc() {
+    #Args: stn x y
+    /usr2/AuscopeUtils/wxgui/bin/erc_gui /usr2/AuscopeUtils/wxgui/config/$1/ 2>/dev/null >/dev/null &
+    local cpid=$!
+
+    local nwins=0
+    local n=0
+
+    while [ $nwins -lt 1  -a $n -lt 20 ]
+    do
+        sleep 0.1
+        local nwins=$(xdotool search --all --pid $cpid --name e-RemoteCtrl | wc -l)
+        local n=$((n+1))
+    done 
+    
+    xdotool search --all --pid $cpid --name e-RemoteCtrl windowmove $2 $3
+}
+
+
+#TODO: better position setup. What to do when all 4 are running?
+Y=1080
+X=0
+dX=1920
+monitor_x=1366
+monitor_y=0
+log_x=1179
+log_y=724
+
+
+for st in "$@"
+do
+    erc $st $X $Y &
+    if [[ $st != "ho" ]]; then
+        monitsys $st $((X+monitor_x)) $((Y+monitor_y)) &
+    fi
+
+    logmonit $st $((X+log_x)) $((Y+log_y)) &
+
+    let "X += $dX"
+done
+
