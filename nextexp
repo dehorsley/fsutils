@@ -1,0 +1,39 @@
+#!/usr/bin/env python2
+from __future__ import print_function
+import time
+import sys
+import os.path
+from urllib import urlretrieve
+
+stns = {'hb','ke','yg','ho'}
+
+now = time.gmtime()
+year = now.tm_year - 2000
+doy = now.tm_yday
+
+#Fetch master file if we don't have it, or it's older than 3 days
+mstr = '/vlbobs/ivs/master%d.txt'%year
+if not os.path.isfile(mstr) or (time.time() - os.path.getmtime(mstr)) > 3*(60*60*24):
+    print("Fetching new master schedule file...", file=sys.stderr)
+    filename, headers = urlretrieve("ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt"%year,mstr)
+    
+f = open(mstr,'r')
+
+def parse_station(s):
+    s = s.split(' ')[0]
+    stns = set()
+    for i in range(len(s)/2):
+        stns.add(s[2*i:2*i+2].lower())
+    return stns
+
+for l in f.readlines():
+    if l.startswith('|'):
+        ses = l.strip(' |\n').split('|')
+        ses_doy = int(ses[3])
+        if ses_doy >= doy:
+            ses_stns  = parse_station(ses[6])
+            our_stns_in_exp = stns.intersection(ses_stns)
+            if len(our_stns_in_exp) > 0:
+                ses_code = ses[1].strip().lower()
+                print(ses_code, " ".join(sorted(list(our_stns_in_exp))))
+                break
