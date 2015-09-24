@@ -2,6 +2,7 @@
 from __future__ import print_function
 import time
 import sys
+import os
 import os.path
 from urllib import urlretrieve
 
@@ -11,11 +12,13 @@ now = time.gmtime()
 year = now.tm_year - 2000
 doy = now.tm_yday
 
-#Fetch master file if we don't have it, or it's older than 3 days
+#Fetch master file if we don't have it, or it's over a day old
 mstr = '/vlbobs/ivs/master%d.txt'%year
-if not os.path.isfile(mstr) or (time.time() - os.path.getmtime(mstr)) > 3*(60*60*24):
-    print("Fetching new master schedule file...", file=sys.stderr)
-    filename, headers = urlretrieve("ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt"%year,mstr)
+if not os.path.isfile(mstr) or (time.time() - os.path.getmtime(mstr)) > (60*60*24):
+    os.chdir('/vlbobs/ivs/')
+    os.system('wget -q -N ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt'%year)
+    #print("Fetching new master schedule file...", file=sys.stderr)
+    #filename, headers = urlretrieve("ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt"%year,mstr)
     
 f = open(mstr,'r')
 
