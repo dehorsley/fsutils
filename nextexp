@@ -7,10 +7,15 @@ import os
 import os.path
 from urllib import urlretrieve
 
-if len(sys.argv) > 1:
-    stns = set(sys.argv[1:])
-else:
-    stns = {'hb','ke','yg','ho'}
+import argparse
+parser = argparse.ArgumentParser(description='Find the next experiment containing at least one of the given stations.')
+parser.add_argument('stns', nargs='*', default=['hb', 'ke', 'yg', 'ho'], help='stations to consider (default "hb ke yg ho")')
+parser.add_argument('-p', '--print-stations', action='store_true', help='print which of stns are invloved in found experiment.')
+parser.add_argument('-a', '--all', action='store_true', help='find next the experiment with all "stns" in it ')
+
+args = parser.parse_args()
+
+stns = set(args.stns)
 
 now = datetime.utcnow()
 year = now.year - 2000
@@ -35,11 +40,16 @@ for l in f.readlines():
     if l.startswith('|'):
         ses = l.strip(' |\n').split('|')
         ses_time = datetime.strptime("%d %s %s"%(now.year, ses[2], ses[4]), "%Y %b%d %H:%M")
-
+        
         if ses_time >= now:
             ses_stns  = parse_station(ses[6])
             our_stns_in_exp = stns.intersection(ses_stns)
-            if len(our_stns_in_exp) > 0:
+            if (not args.all and our_stns_in_exp != set()) or (args.all and our_stns_in_exp == stns):
                 ses_code = ses[1].strip().lower()
-                print(ses_code, " ".join(sorted(list(our_stns_in_exp))))
                 break
+
+if args.print_stations:
+    print(ses_code, " ".join(sorted(list(our_stns_in_exp))))
+else:
+    print(ses_code)
+
