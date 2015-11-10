@@ -23,8 +23,7 @@ year = now.year - 2000
 mstr = '/vlbobs/ivs/master%d.txt'%year
 #Check for new master file if we haven't done so in a day
 if not os.path.isfile(mstr) or now > datetime.utcfromtimestamp(os.path.getmtime(mstr)) + timedelta(1):
-    os.chdir('/vlbobs/ivs/')
-    os.system('wget -q -N ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt'%year)
+    os.system('wget -q ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt -O /vlbobs/ivs/master%d.txt'%(year,year))
     os.utime(mstr,None)
     
 f = open(mstr,'r')
@@ -36,6 +35,7 @@ def parse_station(s):
         stns.add(s[2*i:2*i+2].lower())
     return stns
 
+ses_code = ''
 for l in f.readlines():
     if l.startswith('|'):
         ses = l.strip(' |\n').split('|')
@@ -48,8 +48,9 @@ for l in f.readlines():
                 ses_code = ses[1].strip().lower()
                 break
 
-if args.print_stations:
-    print(ses_code, " ".join(sorted(list(our_stns_in_exp))))
-else:
-    print(ses_code)
+if ses_code:
+    if args.print_stations:
+        print(ses_code, " ".join(sorted(list(our_stns_in_exp))))
+    else:
+        print(ses_code)
 
