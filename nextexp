@@ -10,8 +10,10 @@ from urllib import urlretrieve
 import argparse
 parser = argparse.ArgumentParser(description='Find the next experiment containing at least one of the given stations.')
 parser.add_argument('stns', nargs='*', default=['hb', 'ke', 'yg', 'ho'], help='stations to consider (default "hb ke yg ho")')
-parser.add_argument('-p', '--print-stations', action='store_true', help='print which of stns are invloved in found experiment.')
-parser.add_argument('-a', '--all', action='store_true', help='find next the experiment with all "stns" in it ')
+parser.add_argument('-l', '--last', action='store_true', help='find the last experiment')
+parser.add_argument('-c', '--current', action='store_true', help='find the current experiment')
+parser.add_argument('-a', '--all', action='store_true', help='find the experiment with all "stns" in it')
+parser.add_argument('-p', '--print-stations', action='store_true', help='print which of stns are invloved in experiment')
 
 args = parser.parse_args()
 
