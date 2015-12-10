@@ -13,11 +13,11 @@ while true; do
     if [ "$NEW" != "$LOG" ]; then
         # Give the fs time to finnish current log and create new
         sleep 1
-	disown $PID
+        disown $PID
         kill $PID
 
         # Only print the whole file if it's new. This avoids, e.g., printing the whole stations log when switching to it.
-        if [[ $(date -r /usr2/log/${NEW}.log +%s) -gt $(date +%s --date="1 min ago") ]]; then
+        if [[ $(date -r /usr2/log/${NEW}.log +%s) -gt $(date +%s --date="5 sec ago") ]]; then
             tail -n+1 -f /usr2/log/${NEW}.log & 
         else
             tail -n 0 -f /usr2/log/${NEW}.log & 
