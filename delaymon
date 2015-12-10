@@ -1,0 +1,31 @@
+#!/bin/sh
+
+read -d '' SCRIPT <<-'EOF'
+function abs(x){
+    return ((x < 0.0) ? -x : x)
+}
+
+BEGIN{
+    FS="/|&"
+    fmt = 0.0
+    msr = 0.0
+}{
+    if($2 ~ /fmout-gps/){
+        fmt = $3
+    } else if($2 ~ /maser2gps/ ) {
+        msr = $3
+        if(fmt != 0){
+            t = -(msr-fmt)*10^6
+            if(abs(t) < 10.0){
+                print $1 "\\t" t
+                fflush()
+            }
+        }
+    }
+
+    
+}
+EOF
+
+log  -n+1 $* |
+awk  "$SCRIPT"
