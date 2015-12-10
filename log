@@ -1,0 +1,23 @@
+#!/bin/sh
+#Print the Field System log to stdout 
+
+LOG=$(lognm)
+
+tail -n 0 -f /usr2/log/$LOG.log &
+PID=$!
+
+while true; do
+    NEW=$(lognm)
+    if [ "$NEW" != "$LOG" ]; then
+        kill $PID
+        # Only print the whole file if it's new. This avoids, e.g., printing the whole stations log when switching to it.
+        if [ $(date -r /usr2/log/${NEW}.log +%s) -lt $(date +%s --date="5 min ago") ]; then
+            tail -n+1 -f /usr2/log/${NEW}.log &
+        else
+            tail -n 0 -f /usr2/log/${NEW}.log &
+        fi
+        PID=$!
+        LOG=$NEW
+    fi
+    sleep 1
+done
