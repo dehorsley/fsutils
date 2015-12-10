@@ -27,5 +27,5 @@ BEGIN{
 }
 EOF
 
-tail -f -n+1 /usr2/log/`/usr2/fs/bin/lognm`.log |
+log  -n+1 $* |
 awk  "$SCRIPT"
