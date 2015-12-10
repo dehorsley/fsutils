@@ -3,7 +3,7 @@
 
 LOG=$(lognm)
 
-tail -n 0 -f /usr2/log/${LOG}.log & 
+tail -n0 $* -f /usr2/log/${LOG}.log & 
 PID=$!
 
 trap 'kill $(jobs -p)' EXIT
