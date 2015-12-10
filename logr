@@ -6,7 +6,7 @@ PCFS=pcfske
 
 LOG=$($SSH $PCFS lognm)
 
-$SSH $PCFS tail -n 0 -f /usr2/log/$LOG.log &
+$SSH $PCFS tail -n 0 -f /usr2/log/$LOG.log 2>/dev/null &
 PID=$!
 
 #Kill ssh tail on exit 
@@ -18,9 +18,9 @@ while true; do
         kill $PID
         # Only print the whole file if its new. This avoids eg printing the whole stations file when switching to it.
         if [ $(ssh date -r /usr2/log/${NEW}.log +%s) -lt $(ssh date +%s --date="5 min ago") ]; then
-            $SSH $PCFS tail -n+1 -f /usr2/log/${NEW}.log &
+            $SSH $PCFS tail -n+1 -f /usr2/log/${NEW}.log 2>/dev/null &
         else
-            $SSH $PCFS tail -n 0 -f /usr2/log/${NEW}.log &
+            $SSH $PCFS tail -n 0 -f /usr2/log/${NEW}.log 2>/dev/null &
         fi
         PID=$!
         LOG=$NEW

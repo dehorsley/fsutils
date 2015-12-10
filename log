@@ -3,7 +3,7 @@
 
 LOG=$(lognm)
 
-tail -n 0 -f /usr2/log/$LOG.log &
+tail -n 0 -f /usr2/log/$LOG.log 2>/dev/null &
 PID=$!
 
 while true; do
@@ -12,9 +12,9 @@ while true; do
         kill $PID
         # Only print the whole file if it's new. This avoids, e.g., printing the whole stations log when switching to it.
         if [ $(date -r /usr2/log/${NEW}.log +%s) -lt $(date +%s --date="5 min ago") ]; then
-            tail -n+1 -f /usr2/log/${NEW}.log &
+            tail -n+1 -f /usr2/log/${NEW}.log 2>/dev/null &
         else
-            tail -n 0 -f /usr2/log/${NEW}.log &
+            tail -n 0 -f /usr2/log/${NEW}.log 2>/dev/null &
         fi
         PID=$!
         LOG=$NEW
