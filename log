@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 #Print the Field System log to stdout 
 
 LOG=$(lognm)
 
 set +b
 
-tail -n 0 -f /usr2/log/$LOG.log 2>/dev/null &
+tail -n 0 -f /usr2/log/${LOG}.log 2>/dev/null &
 PID=$!
 
 while true; do
