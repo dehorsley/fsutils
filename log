@@ -3,6 +3,8 @@
 
 LOG=$(lognm)
 
+set +b
+
 tail -n 0 -f /usr2/log/$LOG.log 2>/dev/null &
 PID=$!
 
