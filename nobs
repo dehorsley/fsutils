@@ -8,7 +8,7 @@ import os.path
 from urllib import urlretrieve
 
 import argparse
-parser = argparse.ArgumentParser(description='Find the next experiment containing at least one of the given stations.')
+parser = argparse.ArgumentParser(description='Find the next observation containing at least one of the given stations.')
 parser.add_argument('stns', nargs='*', default=['hb', 'ke', 'yg', 'ho'], help='stations to consider (default "hb ke yg ho")')
 parser.add_argument('-l', '--last', action='store_true', help='find the last experiment')
 parser.add_argument('-c', '--current', action='store_true', help='find the current or next experiment')
