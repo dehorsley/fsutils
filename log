@@ -2,6 +2,7 @@
 #Print the Field System log to stdout 
 
 
+#Kill child tail on exit
 trap 'kill $(jobs -p)' EXIT
 
 LOG=
@@ -19,16 +20,16 @@ while true; do
     if [ "$NEW" != "$LOG" ]; then
 
         #Kill old tail process, disowning it so shell doesn't announce it.
-        if [ -z "$PID"]; then
+        if [ "$PID" ]; then
             disown $PID
             kill $PID
         fi
 
-        # Only print the whole file if it's new. This avoids, e.g., printing the whole stations log when switching to it.
-        if [[ $(date -r /usr2/log/${NEW}.log +%s) -gt $(date +%s --date="10 sec ago") ]]; then
-            tail -n+1 -f /usr2/log/${NEW}.log & 
+        # Only print the whole file if it's small This avoids, e.g., printing the whole stations log when switching to it.
+        if [ $(stat --printf="%s" "/usr2/log/${NEW}.log") -lt 4000 ]; then
+            tail -n+1 -f "/usr2/log/${NEW}.log" & 
         else
-            tail -n 0 -f /usr2/log/${NEW}.log & 
+            tail -n 0 -f "/usr2/log/${NEW}.log" & 
         fi
         PID=$!
         LOG=$NEW
