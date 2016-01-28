@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+const (
+	poll_period = 1
+	ping_period = 2
+)
+
 type windData struct {
 	time             time.Time
 	name             string
@@ -100,24 +105,27 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//Keep Alive and polling
+	//Keep Alive
 	go func() {
-		i := 0
-		for ; ; i++ {
-			i = i % 5
-			switch i {
-			case 0:
-				_, err = Conn.Write(poll)
-				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "POLL")
-			default:
-				_, err = Conn.Write(ping)
-				log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "PING")
-			}
+		for {
+			time.Sleep(time.Second * ping_period)
+			_, err = Conn.Write(ping)
+			log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "PING")
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(time.Second * 2)
 		}
+
+	}()
+
+	//Polling
+	go func() {
+		for {
+			_, err = Conn.Write(poll)
+			log.Printf("127.0.0.1:%d - %s\n", localaddr.Port, "POLL")
+			time.Sleep(time.Second * poll_period)
+		}
+
 	}()
 
 	buf := make([]byte, 1024)
