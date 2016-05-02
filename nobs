@@ -17,6 +17,10 @@ parser.add_argument('-p', '--print-stations', action='store_true', help='print w
 
 args = parser.parse_args()
 
+if args.last and args.current:
+    print('Conclicting arguments',file=sys.stderr)
+    sys.exit(1)
+
 stns = set(args.stns)
 
 now = datetime.utcnow()
@@ -58,16 +62,31 @@ class Session:
         self.scheduler = s[7]
         self.correlator = s[8]
 
-ses = {}
+
+ses = {} # The matching session
 for l in f.readlines():
     if l.startswith('|'):
-        ses = Session(l,now.year)
-        if (args.current and ( ses.start < now < ses.end)) or ses.start >= now:
-            our_stns_in_exp = stns.intersection(ses.stations)
-            if (not args.all and our_stns_in_exp != set()) or (args.all and our_stns_in_exp == stns):
-                break
+        newses = Session(l,now.year)
+        our_stns_in_exp = stns.intersection(newses.stations)
+        if (not args.all and our_stns_in_exp != set()) or (args.all and our_stns_in_exp == stns):
+            if args.last:
+                if newses.start > now:
+                    break
+                else:
+                    ses = newses
+            elif args.current:
+                if newses.start < now < newses.end: 
+                    ses = newses
+                elif newses.end < now:
+                    break
+            else: #Upcomming 
+                if newses.start < now:
+                    ses = newses
+                else:
+                    ses = newses
+                    break
 
-if ses.code:
+if ses:
     if args.print_stations:
         print(ses.code, " ".join(sorted(list(our_stns_in_exp))))
     else:
