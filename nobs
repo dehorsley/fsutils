@@ -1,100 +1,163 @@
 #!/usr/bin/env python2
+'''
+Find the next IVS scheduled VLBI observation containing at least one of the given stations.
+'''
+
 from __future__ import print_function
-#import time
 from datetime import datetime, timedelta
 import sys
 import os
-import os.path
-from urllib import urlretrieve
+import argparse
 
 
 #CONFIG
 DEFAULT_STNS = ['hb', 'ke', 'yg', 'ho']
 MASTER_PATH = '/vlbobs/ivs/master%d.txt' # %d is replaced with the two digit year.
+MASTER_URL = 'ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt'
 
-import argparse
-parser = argparse.ArgumentParser(description='Find the next observation containing at least one of the given stations.')
-parser.add_argument('stns', nargs='*', default=DEFAULT_STNS, help='stations to consider (default "hb ke yg ho")')
-parser.add_argument('-l', '--last', action='store_true', help='find the last experiment')
-parser.add_argument('-c', '--current', action='store_true', help='find the current or next experiment')
-parser.add_argument('-a', '--all', action='store_true', help='find the experiment with all "stns" in it')
-parser.add_argument('-p', '--print-stations', action='store_true', help='print which of stns are invloved in experiment')
-parser.add_argument('-u', '--update', action='store_true', help='force an update of the master schedule file')
+MASTER_COLUMNS = ["name",
+                  "code",
+                  "date",
+                  "doy",
+                  "time",
+                  "dur",
+                  "stations",
+                  "sked",
+                  "corr",
+                  "status",
+                  "pf",
+                  "dbcCode",
+                  "subm",
+                  "del",
+                  "mk4Num",
+                 ]
 
-args = parser.parse_args()
+def parse_session(line, year=None):
+    """
+    Convert row of master schedule into dictionary
+    """
+    values = line.strip(' \n|').split('|')
 
-if args.last and args.current:
-    print('Conclicting arguments',file=sys.stderr)
-    sys.exit(1)
+    session = dict(zip(MASTER_COLUMNS, values))
+    if not year:
+        year = datetime.utcnow().year
+    session["year"] = year
 
-stns = set(args.stns)
+    #Add start datetime object
+    startstr = "{year} {date} {time}".format(**session)
+    session["start"] = datetime.strptime(startstr, "%Y %b%d %H:%M")
+    session["dur"] = timedelta(0, int(session["dur"])*60*60, 0)
+    session["end"] = session["start"] + session["dur"]
 
-now = datetime.utcnow()
-year = now.year - 2000
+    #Turn stations into a set for comparisons
+    stations = set()
+    stations_str = session["stations"].split(' ')
 
-mstr = MASTER_PATH%year
-#Check for new master file if we haven't done so in a day
-if not os.path.isfile(mstr) or now > datetime.utcfromtimestamp(os.path.getmtime(mstr)) + timedelta(1) or args.update:
-    os.system('wget -q ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt -O /vlbobs/ivs/master%d.txt'%(year,year))
-    os.utime(mstr,None)
-    
-f = open(mstr,'r')
+    if len(stations_str) > 1:
+        stations_removed_str = stations_str[1].strip('-').lower()
+        stations_removed = set()
+        for i in range(len(stations_removed_str)/2):
+            stations_removed.add(stations_removed_str[2*i:2*i+2])
 
+    stations_str = stations_str[0].lower()
+    for i in range(len(stations_str)/2):
+        stations.add(stations_str[2*i:2*i+2])
 
-class Session:
-    def __init__(self, s,year):
-        d = s.strip(' \n|').split('|')
-        self.name = d[0].strip()
-        self.code = d[1].strip().lower()
+    session['stations'] = stations
+    session['stationsRemoved'] = stations_removed
 
-        self.start = datetime.strptime("%d %s %s"%(year, d[2], d[4]), "%Y %b%d %H:%M")
-        self.end = self.start +  timedelta(0,int(d[5])*60*60,0)
-
-        sts = d[6].split(' ')
-        self.stations = set()
-        sin = sts
-        if len(sts) > 1:
-            sin = sts[0]
-
-        for i in range(len(sin)/2):
-            self.stations.add(sin[2*i:2*i+2].lower())
-
-        self.stations_removed = set()
-        if len(sts) > 1:
-            sout = sts[1].strip('-')
-            for i in range(len(sout)/2):
-                self.stations_removed.add(sout[2*i:2*i+2].lower())
-
-        self.scheduler = s[7]
-        self.correlator = s[8]
+    return session
 
 
-ses = {} # The matching session
-for l in f.readlines():
-    if l.startswith('|'):
-        newses = Session(l,now.year)
-        our_stns_in_exp = stns.intersection(newses.stations)
-        if (not args.all and our_stns_in_exp != set()) or (args.all and our_stns_in_exp == stns):
-            if args.last:
-                if newses.start > now:
-                    break
-                else:
-                    ses = newses
-            elif args.current:
-                if newses.start < now < newses.end: 
-                    ses = newses
-                elif newses.end < now:
-                    break
-            else: #Upcomming 
-                if newses.start < now:
-                    ses = newses
-                else:
-                    ses = newses
-                    break
+def main():
+    '''
+    Do the work
+    '''
+    parser = argparse.ArgumentParser(description=__doc__)
 
-if ses:
-    if args.print_stations:
-        print(ses.code, " ".join(sorted(list(our_stns_in_exp))))
-    else:
-        print(ses.code)
+    parser.add_argument('stns',
+                        nargs='*',
+                        default=DEFAULT_STNS,
+                        help='stations to consider (default "hb ke yg ho")')
+
+    parser.add_argument('-l',
+                        '--last',
+                        action='store_true',
+                        help='find the last experiment')
+
+    parser.add_argument('-c',
+                        '--current',
+                        action='store_true',
+                        help='find the current or next experiment')
+
+    parser.add_argument('-a',
+                        '--all',
+                        action='store_true',
+                        help='find the experiment with all "stns" in it')
+
+    parser.add_argument('-p',
+                        '--print-stations',
+                        action='store_true',
+                        help='print which of stns are invloved in experiment')
+
+    parser.add_argument('-u',
+                        '--update',
+                        action='store_true',
+                        help='force an update of the master schedule file')
+
+    args = parser.parse_args()
+
+    if args.last and args.current:
+        print('Conclicting arguments', file=sys.stderr)
+        sys.exit(1)
+
+    stns = set(args.stns)
+
+    now = datetime.utcnow()
+    year = now.year - 2000
+
+    mstr = MASTER_PATH%year
+    mstrurl = MASTER_URL%year
+    #Check for new master file if we haven't done so in a day
+    if (not os.path.isfile(mstr)
+            or now > datetime.utcfromtimestamp(os.path.getmtime(mstr)) + timedelta(1)
+            or args.update):
+        os.system('wget -q %s -O %s' % (mstrurl, mstr))
+        os.utime(mstr, None)
+
+    masterfile = open(mstr, 'r')
+
+    ses = None # The matching session
+    for line in masterfile.readlines():
+        if line.startswith('|'):
+            newses = parse_session(line)
+            our_stns_in_exp = stns.intersection(newses["stations"])
+
+            if (not args.all and our_stns_in_exp != set()
+                    or (args.all and our_stns_in_exp == stns)):
+                if args.last:
+                    if newses["start"] > now:
+                        break
+                    else:
+                        ses = newses
+                elif args.current:
+                    if newses['start'] < now < newses['end']:
+                        ses = newses
+                    elif newses['end'] < now:
+                        break
+                else: #Next observation (default)
+                    if newses['start'] < now:
+                        ses = newses
+                    else:
+                        ses = newses
+                        break
+
+    if ses:
+        if args.print_stations:
+            print(ses['code'], " ".join(sorted(list(our_stns_in_exp))))
+        else:
+            print(ses['code'])
+
+if __name__ == "__main__":
+    main()
 
