@@ -7,13 +7,19 @@ import os
 import os.path
 from urllib import urlretrieve
 
+
+#CONFIG
+DEFAULT_STNS = ['hb', 'ke', 'yg', 'ho']
+MASTER_PATH = '/vlbobs/ivs/master%d.txt' # %d is replaced with the two digit year.
+
 import argparse
 parser = argparse.ArgumentParser(description='Find the next observation containing at least one of the given stations.')
-parser.add_argument('stns', nargs='*', default=['hb', 'ke', 'yg', 'ho'], help='stations to consider (default "hb ke yg ho")')
+parser.add_argument('stns', nargs='*', default=DEFAULT_STNS, help='stations to consider (default "hb ke yg ho")')
 parser.add_argument('-l', '--last', action='store_true', help='find the last experiment')
 parser.add_argument('-c', '--current', action='store_true', help='find the current or next experiment')
 parser.add_argument('-a', '--all', action='store_true', help='find the experiment with all "stns" in it')
 parser.add_argument('-p', '--print-stations', action='store_true', help='print which of stns are invloved in experiment')
+parser.add_argument('-u', '--update', action='store_true', help='force an update of the master schedule file')
 
 args = parser.parse_args()
 
@@ -26,9 +32,9 @@ stns = set(args.stns)
 now = datetime.utcnow()
 year = now.year - 2000
 
-mstr = '/vlbobs/ivs/master%d.txt'%year
+mstr = MASTER_PATH%year
 #Check for new master file if we haven't done so in a day
-if not os.path.isfile(mstr) or now > datetime.utcfromtimestamp(os.path.getmtime(mstr)) + timedelta(1):
+if not os.path.isfile(mstr) or now > datetime.utcfromtimestamp(os.path.getmtime(mstr)) + timedelta(1) or args.update:
     os.system('wget -q ftp://cddis.gsfc.nasa.gov/pub/vlbi/ivscontrol/master%d.txt -O /vlbobs/ivs/master%d.txt'%(year,year))
     os.utime(mstr,None)
     
