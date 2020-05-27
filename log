@@ -1,5 +1,7 @@
 #!/bin/bash
-#Print the Field System log to stdout 
+set -euo pipefail
+
+# Print the Field System log to stdout
 
 
 #Kill child tail on exit
@@ -9,27 +11,26 @@ LOG=
 PID=
 
 while true; do
-    NEW=$(lognm)
-
     # FS isn't running or hasn't created new log yet 
-    if [ $? -ne 0 -o ! -e  "/usr2/log/${NEW}.log" ]; then
+    if ! NEW=$(lognm) || [[ ! -e  "/usr2/log/${NEW}.log" ]]; then
         sleep 1
         continue
     fi
 
-    if [ "$NEW" != "$LOG" ]; then
+    if [[ "$NEW" != "$LOG" ]]; then
 
-        #Kill old tail process, disowning it so shell doesn't announce it.
-        if [ "$PID" ]; then
-            disown $PID
-            kill $PID
+        # Kill old tail process, disowning it so shell doesn't announce it.
+        if [[ -n "$PID" ]]; then
+            disown "$PID"
+            kill "$PID"
         fi
 
-        # Only print the whole file if it's small This avoids, e.g., printing the whole stations log when switching to it.
-        if [ $(stat --printf="%s" "/usr2/log/${NEW}.log") -lt 4000 ]; then
-            tail -n+1 -f "/usr2/log/${NEW}.log" & 
+        # Only print the whole file it was created recently.
+        # This avoids, e.g., printing the whole stations log when switching to it.
+        if [ "$(stat --printf="%s" "/usr2/log/${NEW}.log")" -lt 4000 ]; then
+            tail -n+1 -f "/usr2/log/${NEW}.log" &
         else
-            tail -n 0 -f "/usr2/log/${NEW}.log" & 
+            tail -n 0 -f "/usr2/log/${NEW}.log" &
         fi
         PID=$!
         LOG=$NEW
